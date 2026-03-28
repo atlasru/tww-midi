@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 export default function MidiGallery() {
   const [midis, setMidis] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
-  const audioRef = useRef(null);
 
   useEffect(() => {
+    // load web component for MIDI player
+    import("html-midi-player");
+
     fetch("https://api.github.com/repos/thewildwestmidis/midis/contents")
       .then((res) => res.json())
       .then((data) => {
@@ -23,30 +25,6 @@ export default function MidiGallery() {
     const s = search.toLowerCase();
     return midis.filter((m) => m.name.toLowerCase().includes(s));
   }, [midis, search]);
-
-  const play = (m) => {
-    setCurrent(m);
-    requestAnimationFrame(() => {
-      if (audioRef.current) {
-        audioRef.current.src = m.download_url;
-        audioRef.current.play().catch(() => {});
-      }
-    });
-  };
-
-  // simple windowing (ultra-light): render only first N + more on scroll
-  const [limit, setLimit] = useState(60);
-  useEffect(() => {
-    const onScroll = () => {
-      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
-        setLimit((l) => Math.min(l + 60, filtered.length));
-      }
-    };
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [filtered.length]);
-
-  const visible = filtered.slice(0, limit);
 
   return (
     <div className="min-h-screen bg-[#0b0b12] text-white px-4 md:px-6 py-6">
@@ -68,25 +46,37 @@ export default function MidiGallery() {
         />
       </header>
 
-      {/* Global Player */}
-      <div className="sticky top-2 z-10 mb-4 bg-[#11111a] border border-white/10 rounded-xl p-3 flex items-center justify-between gap-3">
-        <div className="truncate text-sm text-gray-300">
-          {current ? current.name : "Nothing playing"}
-        </div>
-        <audio ref={audioRef} controls preload="none" className="w-56" />
+      {/* Player */}
+      <div className="sticky top-2 z-10 mb-4 bg-[#11111a] border border-white/10 rounded-xl p-3">
+        {current ? (
+          <midi-player
+            src={current.download_url}
+            sound-font
+            visualizer="#visualizer"
+          ></midi-player>
+        ) : (
+          <div className="text-sm text-gray-400">Select a MIDI to play</div>
+        )}
+
+        <midi-visualizer
+          type="piano-roll"
+          id="visualizer"
+          className="w-full mt-2"
+        ></midi-visualizer>
       </div>
 
       {loading && <div className="text-gray-400">Loading…</div>}
 
-      {/* List (ultra light) */}
+      {/* List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {visible.map((m) => (
+        {filtered.slice(0, 100).map((m) => (
           <button
             key={m.name}
-            onClick={() => play(m)}
+            onClick={() => setCurrent(m)}
             className="text-left bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 transition"
           >
             <div className="text-sm font-medium truncate mb-2">{m.name}</div>
+
             <div className="flex justify-between text-xs text-gray-400">
               <span>Play</span>
               <a
@@ -105,10 +95,6 @@ export default function MidiGallery() {
 
       {!loading && filtered.length === 0 && (
         <div className="text-center text-gray-500 mt-10">No MIDI files found.</div>
-      )}
-
-      {visible.length < filtered.length && (
-        <div className="text-center text-gray-500 mt-6">Loading more…</div>
       )}
     </div>
   );
