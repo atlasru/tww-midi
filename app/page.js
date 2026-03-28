@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 
 export default function MidiGallery() {
@@ -21,6 +23,7 @@ export default function MidiGallery() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0b0b12] via-[#12121f] to-[#1b1b2f] text-white px-6 py-8">
+      {/* Header */}
       <header className="mb-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-4xl font-semibold tracking-tight bg-gradient-to-r from-purple-300 via-pink-200 to-blue-200 text-transparent bg-clip-text">
@@ -29,6 +32,7 @@ export default function MidiGallery() {
           <p className="text-sm text-gray-400 mt-1">created by atlasru</p>
         </div>
 
+        {/* Search */}
         <input
           type="text"
           placeholder="Search MIDI..."
@@ -38,24 +42,29 @@ export default function MidiGallery() {
         />
       </header>
 
+      {/* Loading */}
       {loading && (
         <div className="text-center text-gray-400">Loading MIDI files...</div>
       )}
 
+      {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filtered.map((midi) => (
           <div
             key={midi.name}
             className="group backdrop-blur-2xl bg-white/10 border border-white/20 rounded-2xl p-4 shadow-xl hover:shadow-2xl hover:bg-white/15 transition-all duration-300"
           >
+            {/* Title */}
             <h2 className="text-base font-medium mb-3 truncate group-hover:text-purple-200 transition">
               {midi.name}
             </h2>
 
+            {/* Player */}
             <audio controls className="w-full mb-3 opacity-80 group-hover:opacity-100 transition">
               <source src={midi.download_url} type="audio/midi" />
             </audio>
 
+            {/* Actions */}
             <div className="flex justify-between items-center text-sm">
               <a
                 href={midi.download_url}
@@ -79,6 +88,7 @@ export default function MidiGallery() {
         ))}
       </div>
 
+      {/* Empty state */}
       {!loading && filtered.length === 0 && (
         <div className="text-center text-gray-500 mt-10">
           No MIDI files found.
