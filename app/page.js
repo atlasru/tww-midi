@@ -1,98 +1,114 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export default function MidiGallery() {
   const [midis, setMidis] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [current, setCurrent] = useState(null);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     fetch("https://api.github.com/repos/thewildwestmidis/midis/contents")
       .then((res) => res.json())
       .then((data) => {
-        const midiFiles = data.filter((file) => file.name.endsWith(".mid"));
+        const midiFiles = data.filter((f) => f.name.endsWith(".mid"));
         setMidis(midiFiles);
         setLoading(false);
       });
   }, []);
 
-  const filtered = midis.filter((m) =>
-    m.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const s = search.toLowerCase();
+    return midis.filter((m) => m.name.toLowerCase().includes(s));
+  }, [midis, search]);
+
+  const play = (m) => {
+    setCurrent(m);
+    requestAnimationFrame(() => {
+      if (audioRef.current) {
+        audioRef.current.src = m.download_url;
+        audioRef.current.play().catch(() => {});
+      }
+    });
+  };
+
+  // simple windowing (ultra-light): render only first N + more on scroll
+  const [limit, setLimit] = useState(60);
+  useEffect(() => {
+    const onScroll = () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
+        setLimit((l) => Math.min(l + 60, filtered.length));
+      }
+    };
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [filtered.length]);
+
+  const visible = filtered.slice(0, limit);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0b0b12] via-[#12121f] to-[#1b1b2f] text-white px-6 py-8">
+    <div className="min-h-screen bg-[#0b0b12] text-white px-4 md:px-6 py-6">
       {/* Header */}
-      <header className="mb-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <header className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-4xl font-semibold tracking-tight bg-gradient-to-r from-purple-300 via-pink-200 to-blue-200 text-transparent bg-clip-text">
+          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
             MIDI Library
           </h1>
-          <p className="text-sm text-gray-400 mt-1">created by atlasru</p>
+          <p className="text-xs text-gray-400 mt-1">created by atlasru</p>
         </div>
 
-        {/* Search */}
         <input
           type="text"
           placeholder="Search MIDI..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full md:w-64 px-4 py-2 rounded-xl bg-white/10 border border-white/20 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-purple-300/40 placeholder-gray-400"
+          className="w-full md:w-64 px-3 py-2 rounded-lg bg-white/5 border border-white/10 outline-none"
         />
       </header>
 
-      {/* Loading */}
-      {loading && (
-        <div className="text-center text-gray-400">Loading MIDI files...</div>
-      )}
+      {/* Global Player */}
+      <div className="sticky top-2 z-10 mb-4 bg-[#11111a] border border-white/10 rounded-xl p-3 flex items-center justify-between gap-3">
+        <div className="truncate text-sm text-gray-300">
+          {current ? current.name : "Nothing playing"}
+        </div>
+        <audio ref={audioRef} controls preload="none" className="w-56" />
+      </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filtered.map((midi) => (
-          <div
-            key={midi.name}
-            className="group backdrop-blur-2xl bg-white/10 border border-white/20 rounded-2xl p-4 shadow-xl hover:shadow-2xl hover:bg-white/15 transition-all duration-300"
+      {loading && <div className="text-gray-400">Loading…</div>}
+
+      {/* List (ultra light) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {visible.map((m) => (
+          <button
+            key={m.name}
+            onClick={() => play(m)}
+            className="text-left bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 transition"
           >
-            {/* Title */}
-            <h2 className="text-base font-medium mb-3 truncate group-hover:text-purple-200 transition">
-              {midi.name}
-            </h2>
-
-            {/* Player */}
-            <audio controls className="w-full mb-3 opacity-80 group-hover:opacity-100 transition">
-              <source src={midi.download_url} type="audio/midi" />
-            </audio>
-
-            {/* Actions */}
-            <div className="flex justify-between items-center text-sm">
+            <div className="text-sm font-medium truncate mb-2">{m.name}</div>
+            <div className="flex justify-between text-xs text-gray-400">
+              <span>Play</span>
               <a
-                href={midi.download_url}
+                href={m.download_url}
                 target="_blank"
                 rel="noreferrer"
-                className="text-purple-300 hover:text-purple-200 transition"
+                onClick={(e) => e.stopPropagation()}
+                className="hover:text-white"
               >
                 Download
               </a>
-
-              <a
-                href={midi.html_url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-gray-400 hover:text-white transition"
-              >
-                View
-              </a>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
-      {/* Empty state */}
       {!loading && filtered.length === 0 && (
-        <div className="text-center text-gray-500 mt-10">
-          No MIDI files found.
-        </div>
+        <div className="text-center text-gray-500 mt-10">No MIDI files found.</div>
+      )}
+
+      {visible.length < filtered.length && (
+        <div className="text-center text-gray-500 mt-6">Loading more…</div>
       )}
     </div>
   );
